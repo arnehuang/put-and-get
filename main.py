@@ -2,6 +2,7 @@ import requests
 import os
 import hashlib
 import filecmp
+import zlib
 
 # Constants
 PUT_ENDPOINT = 'https://mqa2quz62ihewrjo32jf5gb2j40hkygo.lambda-url.us-west-2.on.aws/?data_id={}'
@@ -9,14 +10,21 @@ GET_ENDPOINT = 'https://r7btnkxoy2rvr32tgeptzhtqsu0tuwhw.lambda-url.us-west-2.on
 AUTH_HEADER = {'username': 'arne@email.com'}
 
 
-def generate_data_id(file_name, chunk_index):
-    # TODO: Hash collision chance is high
-    # Retrieving smaller file after larger file doens't work
 
-    # Create a unique data_id using the file name and chunk index
-    hash_object = hashlib.sha256(f'{file_name}-{chunk_index}'.encode())
-    # Use the first 4 characters of the hash as data_id
-    return hash_object.hexdigest()[:4]
+def base62_encode(num, length=4):
+    base62_chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    encoded = ''
+    while num > 0:
+        num, remainder = divmod(num, 62)
+        encoded = base62_chars[remainder] + encoded
+    return encoded.zfill(length)
+
+def generate_data_id(file_name, chunk_index):
+    combined_input = f'{file_name}-{chunk_index}'.encode()
+    crc32_hash = zlib.crc32(combined_input)
+    # Convert to a base62 string and take the first 4 characters
+    return base62_encode(crc32_hash)[:4]
+
 
 
 def put_data(file_path):
